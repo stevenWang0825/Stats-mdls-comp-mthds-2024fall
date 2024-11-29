@@ -1,8 +1,14 @@
-from torch import nn
 import torch.nn.functional as F
+import torch.nn as nn
+import random
+import torch
+import numpy as np
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
 
 # Make a CNN for classifying MNIST
-class SimpleMNISTNet(nn.module):
+class SimpleMNISTNet(nn.Module):
     def __init__(self):
         super(SimpleMNISTNet, self).__init__()
             # Convolutional layers

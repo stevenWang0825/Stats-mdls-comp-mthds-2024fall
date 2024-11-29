@@ -5,9 +5,9 @@ import argparse
 import random
 import numpy as np
 from dataloaders.dataloaders import MNISTLoader
-random.seed(0)
-np.random.seed(0)
-torch.manual_seed(0)
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
 
 def main(args):
     if torch.cuda.is_available():
@@ -28,19 +28,19 @@ def main(args):
     return "success"
 
     
-if __name__ == '__main__':
-    """
-    things to be included in the argsparser:
-    1) add other universal config params 
-    2) experiment mode selections: 
-        model, dataset, alg
-    things not to be included in the argsparser:
-    1) specific model/dataset/alg hyperparams
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=str, choices=['cuda','cpu'] , default='cuda')
-    parser.add_argument('--dataset', type=str, choices=['tibs','mnist','cifar','pde'], default='mnist')
-    parser.add_argument('--alg',type= str, choices=['naiveCP','featCP'],default='featCP')
-    args = parser.parse_args()
+# if __name__ == '__main__':
+#     """
+#     things to be included in the argsparser:
+#     1) add other universal config params 
+#     2) experiment mode selections: 
+#         model, dataset, alg
+#     things not to be included in the argsparser:
+#     1) specific model/dataset/alg hyperparams
+#     """
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--device', type=str, choices=['cuda','cpu'] , default='cuda')
+#     parser.add_argument('--dataset', type=str, choices=['tibs','mnist','cifar','pde'], default='mnist')
+#     parser.add_argument('--alg',type= str, choices=['naiveCP','featCP'],default='featCP')
+#     args = parser.parse_args()
     
-    main(args)
+#     main(args)

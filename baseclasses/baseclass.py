@@ -27,8 +27,11 @@ class BaseDataLoader:
         self.valid_data = None
         self.test_data = None
         
-    def load_data(self):
+    def load_full_data(self):
         raise NotImplementedError
 
+    def load_split_data(self):
+        raise NotImplementedError
+    
     def get_data(self):
         raise NotImplementedError

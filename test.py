@@ -4,11 +4,13 @@ import torch
 import argparse
 import random
 import numpy as np
-from dataloaders.dataloaders import MNISTLoader
-from trainers.trainer_simple_mnist import SimpleMNISTTrainer
 random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
+
+from dataloaders.dataloaders import MNISTLoader, WineQualityLoader
+from trainers.trainer_simple_mnist import SimpleMNISTTrainer
+from trainers.trainer_mlpRegressor import MLPRegressorTrainer
 
 
 if __name__ == '__main__':
@@ -37,16 +39,26 @@ if __name__ == '__main__':
         print('CUDA and MPS are not available. Using CPU...')
     print(f'Using device: {args.device}')
 
-    # this is a demo of how i trained the MNIST net
-    MNISTLoader = MNISTLoader(args)
-    MNISTLoader.load_full_data()
-    MNISTLoader.load_split_data(portion=0.05) # meaning i only use 5% of the dataset to train and test
-    SimpleMNISTTrainer = SimpleMNISTTrainer(args)
-    SimpleMNISTTrainer.train_setup(MNISTLoader.split_trainloader)
-    SimpleMNISTTrainer.train()
-    SimpleMNISTTrainer.test_setup(MNISTLoader.split_testloader)
-    SimpleMNISTTrainer.test()
-
+    test_option = 'wine-quality'
+    if test_option == 'mnist': # this is a demo of how i trained the MNIST net
+        MNISTLoader = MNISTLoader(args)
+        MNISTLoader.load_full_data()
+        MNISTLoader.load_split_data(portion=0.05) # meaning i use 5% of the dataset to train and test
+        SimpleMNISTTrainer = SimpleMNISTTrainer(args)
+        SimpleMNISTTrainer.train_setup(MNISTLoader.split_trainloader)
+        SimpleMNISTTrainer.train()
+        SimpleMNISTTrainer.test_setup(MNISTLoader.split_testloader)
+        SimpleMNISTTrainer.test()
+    elif test_option == 'wine-quality':
+        WineQualityLoader = WineQualityLoader(args)
+        WineQualityLoader.load_full_data()
+        WineQualityLoader.load_split_data(portion=0.5)
+        MLPRegressorTrainer = MLPRegressorTrainer(args)
+        MLPRegressorTrainer.train_setup()
+        MLPRegressorTrainer.train()
+        MLPRegressorTrainer.test_setup()
+        MLPRegressorTrainer.test()
+        # WineQualityLoader.get_data()
 
     
     

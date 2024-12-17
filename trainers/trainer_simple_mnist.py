@@ -1,8 +1,15 @@
 import torch
 from torch import nn
 from tqdm import tqdm
+import numpy as np
+import random
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
+
 from baseclasses.baseclass import BaseTrainer
 from architectures.simple_mnistNet import SimpleMNISTNet
+
 
 class SimpleMNISTTrainer(BaseTrainer):
     def __init__(self, args):

@@ -1,12 +1,15 @@
-import time
 import torch
 from torch import nn
 from tqdm import tqdm
 import numpy as np
-import argparse
-from dataloaders.dataloaders import MNISTLoader
+import random
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
+
 from baseclasses.baseclass import BaseTrainer
-from architectures.mnist import SimpleMNISTNet
+from architectures.simple_mnistNet import SimpleMNISTNet
+
 
 class SimpleMNISTTrainer(BaseTrainer):
     def __init__(self, args):
@@ -14,13 +17,13 @@ class SimpleMNISTTrainer(BaseTrainer):
         self.model = SimpleMNISTNet()
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-4)
-        self.epochs = 10
+        self.epochs = 1000
         self.device = args.device
         self.model.to(self.device)
 
     def train_setup(self, train_data, valid_data=None):
-        self.train_data = train_data.to(self.device)
-        self.valid_data = valid_data.to(self.device)
+        self.train_data = train_data
+        self.valid_data = valid_data
 
     def train(self):
         self.model.train()
@@ -36,12 +39,12 @@ class SimpleMNISTTrainer(BaseTrainer):
                 self.optimizer.step()
                 # log and print
                 running_loss += loss.item()
-                if i % 100 == 99:
+                if i % 10 == 1:
                     print(f"[{epoch + 1}, {i + 1}] loss: {running_loss / 100:.3f}")
                     running_loss = 0.0
 
     def test_setup(self, test_data):
-        self.test_data = test_data.to(self.device)
+        self.test_data = test_data
 
     def test(self):
         self.model.eval()  

@@ -1,4 +1,4 @@
-import torch,sys,os
+import torch,sys,os,time
 from torch import nn
 from tqdm import tqdm
 import random
@@ -12,7 +12,8 @@ sys.path.append(main_folder_path)
 
 from baseclasses.baseclass import BaseTrainer
 from architectures.mlpRegressor import MLP_Regressor
-from dataloaders.dataloaders import WineQualityLoader 
+from dataloaders.dataloaders import WineQualityLoader
+from algorithms.feature_CP import ConformalPredictionMethods
 
 
 class MLPRegressorTrainer(BaseTrainer):
@@ -25,9 +26,9 @@ class MLPRegressorTrainer(BaseTrainer):
         else:
             raise NotImplementedError
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-        self.epochs = 500
-        self.batchsize = 64
-        self.feat_iter = 100 # M in the paper's algorithm 2, for calculating nonconformity scores
+        self.epochs = 1000
+        self.batchsize = 128
+        self.feat_iter = 128 # M in the paper's algorithm 2, for calculating nonconformity scores
         self.device = args.device
         self.model.to(self.device)
 
@@ -58,7 +59,7 @@ class MLPRegressorTrainer(BaseTrainer):
                 epoch_loss += loss.item()
                 loss.backward()
                 self.optimizer.step()
-            if epoch % 10 == 1:
+            if epoch % 50 == 0:
                 print(f"[{epoch + 1}] current epoch total loss: {epoch_loss}")
     
     def test_setup(self, test_data):
@@ -69,26 +70,65 @@ class MLPRegressorTrainer(BaseTrainer):
     
     def calibration_setup(self, calib_data):
         self.calib_data = calib_data.to(self.device)
+        print(f"Setup calibration set, data shape: {self.calib_data.shape}")
 
-    def _conformity_score(self, calib_data_point):
-        """
-        the unvectorized version of calculating conformity scores.
-        calib_data_point: [number_of_features+1,1]: feature vector + Y_truth(true Y value)
-        u_feat: output of the feature function 'f'
-        Y_truth: the true Y value
-        u_surrogate: surrogate feature u
-        """
-        u_feat = self.model.feature_func_forward(calib_data_point[:-1])
-        Y_truth = calib_data_point[-1]
-        optimizer = torch.optim.SGD([u_feat], lr=1e-2,momentum=0.9)
-        for iter in range(self.feat_iter):
-            loss = (self.model.predictor_head_forward(u_feat) - Y_truth)**2
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-        u_surrogate = u_feat
-        return 
+    # def _conformity_score(self, calib_data_point):
+    #     """
+    #     the unvectorized version of calculating conformity scores.
+    #     calib_data_point: [number_of_features+1]: feature vector + Y_truth(true Y value)
+    #     u_feat: output of the feature function 'f'
+    #     Y_truth: the true Y value
+    #     u_surrogate: surrogate feature u
+    #     """
+    #     self.model.eval()
+    #     u_temp = self.model.feature_func_forward(calib_data_point[:,:-1].unsqueeze(0))
+    #     u_feat = u_temp.clone().detach().requires_grad_(True) # this is making u_feat a leaf node
+    #     Y_truth = calib_data_point[:,-1]
+    #     optimizer = torch.optim.SGD([u_feat], lr=1e-2,momentum=0.9)
+    #     for _ in range(self.feat_iter):
+    #         loss = (self.model.predictor_head_forward(u_feat) - Y_truth)**2
+    #         optimizer.zero_grad()
+    #         loss.backward()
+    #         optimizer.step()
+    #     u_surrogate = u_feat
+    #     return torch.norm(u_temp - u_surrogate,p=2).item()
     
+    # def conformity_scores(self):
+    #     """
+    #     calculate conformity scores for all calibration data points
+    #     calib_data: [calib_size, number_of_features+1]: each row = feature vectors + Y_truth
+    #     """
+    #     self.model.eval()
+    #     start_time = time.time() 
+    #     conformity_scores = []
+    #     for i in tqdm(range(self.calib_data.shape[0]),desc="calculating scores on calib set"):
+    #         conformity_scores.append(self._conformity_score(self.calib_data[i]))
+    #     end_time = time.time()
+    #     print(f"conformity scores used time: {end_time-start_time}s")
+    #     return np.array(conformity_scores)
+    """
+    WARNING:
+    THE METHODS ABOVE ARE ABORTED BECAUSE OF ITS DEPENDENCE ON OUTER PACKAGES.
+    THESE PACKAGES DATE BACK TO 2020 SO THEY MAY BE INCOMPATIBLE WITH THE CURRENT ENVIRONMENT.
+    IT ALSO REQUIRES MILP SOLVING, BUT THE SOLVER MAY BE UNAVAILABLE FOR US.
+    THIS DOES NOT MEAN THEY ARE INCORRECT.
+    """
+    
+    def fast_conformity_scores(self):
+        """
+        the score calculation method of "FFCP"
+        self.calib_data:[calib_size, number_of_features+1]
+        """
+        self.model.eval()
+        start_time = time.time()
+        u_feat = self.model.feature_func_forward(self.calib_data[:,:-1])
+        y_pred = self.model.predictor_head_forward(u_feat)
+        abs = torch.abs(y_pred.squeeze(-1) - self.calib_data[:,-1])
+        grad_norm = torch.norm(torch.autograd.grad(y_pred[0],u_feat,allow_unused=True,retain_graph=True)[0][0],p=2)
+        scores = abs/grad_norm
+        end_time = time.time()
+        print(f"fast conformity scores used time: {end_time-start_time}s")
+        return scores,grad_norm
         
 
 
@@ -105,9 +145,18 @@ if __name__ == "__main__":
     X_calib,y_calib = dataloader_instance.get_calibration_set()
 
     trainer_instance = MLPRegressorTrainer(args)
-    trainer_instance.train_setup(train_data=torch.cat((X_train,y_train),dim=1), valid_data=None)
-    trainer_instance.train()
-    trainer_instance.calibration_setup(calib_data=torch.cat((X_train,y_train),dim=1))
+    # trainer_instance.train_setup(train_data=torch.cat((X_train,y_train),dim=1), valid_data=None)
+    # trainer_instance.train()
+    
+    trainer_instance.model.eval()
+    trainer_instance.calibration_setup(calib_data=torch.cat((X_calib,y_calib),dim=1))
+    scores, grad_norm = trainer_instance.fast_conformity_scores()
+
+    cpmethods = ConformalPredictionMethods()
+    Q0_1 = cpmethods.weighted_quantile(scores,0.9,torch.ones_like(scores))
+    print(f"Q(0.1): {Q0_1}")
+
+    
     
     
     

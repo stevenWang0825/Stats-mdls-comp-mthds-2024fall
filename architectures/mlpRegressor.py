@@ -52,5 +52,9 @@ class MLP_Regressor(nn.Module):
         assert x.shape[1] == self.dims[-1]
         print(f"feature function output shape: {x.shape}")
         return x
+    
+    def predictor_head_forward(self,x) -> torch.Tensor:
+        x = self.output_layer(x)
+        return x
 
 # if __name__ == '__main__':

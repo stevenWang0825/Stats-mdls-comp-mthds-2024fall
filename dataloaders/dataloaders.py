@@ -91,10 +91,7 @@ class WineQualityLoader(BaseDataLoader):
         self.y_test = self.y[indices_test]
         self.X_calib = self.X[indices_calib]
         self.y_calib = self.y[indices_calib]
-        print(f"Loaded split wine quality dataset \n 
-               with train shape: {self.X_train.shape} \n 
-               test size{self.X_test.shape}\n \
-               calibration size {self.X_calib.shape} ")
+        print(f"Loaded split wine quality dataset with train shape: {self.X_train.shape} \n test size{self.X_test.shape},calibration size {self.X_calib.shape} ")
 
     def get_data(self) -> tuple:
         return self.X_train, self.y_train, self.X_test, self.y_test

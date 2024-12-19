@@ -24,9 +24,9 @@ class MLPRegressorTrainer(BaseTrainer):
             self.criterion = nn.MSELoss()
         else:
             raise NotImplementedError
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
-        self.epochs = 100
-        self.batchsize = 32
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        self.epochs = 500
+        self.batchsize = 64
         self.feat_iter = 100 # M in the paper's algorithm 2, for calculating nonconformity scores
         self.device = args.device
         self.model.to(self.device)
@@ -45,7 +45,7 @@ class MLPRegressorTrainer(BaseTrainer):
         """
         self.model.train()
         loss_logger = []
-        for epoch in tqdm(range(self.epochs),desc="Regression Model Training"):
+        for epoch in tqdm(range(self.epochs),desc="MLP Regression Model Training"):
             epoch_loss = 0.0
             for i in range(0,self.train_data.shape[0],self.batchsize):
                 X_batch = self.train_X[i:min(i+self.batchsize,self.train_data.shape[0]),:]
@@ -59,7 +59,7 @@ class MLPRegressorTrainer(BaseTrainer):
                 loss.backward()
                 self.optimizer.step()
             if epoch % 10 == 1:
-                print(f"[{epoch + 1}] last batch loss: {epoch_loss}")
+                print(f"[{epoch + 1}] current epoch total loss: {epoch_loss}")
     
     def test_setup(self, test_data):
         return super().test_setup(test_data)
@@ -70,7 +70,7 @@ class MLPRegressorTrainer(BaseTrainer):
     def calibration_setup(self, calib_data):
         self.calib_data = calib_data.to(self.device)
 
-    def conformity_scores(self, calib_data_point):
+    def _conformity_score(self, calib_data_point):
         """
         the unvectorized version of calculating conformity scores.
         calib_data_point: [number_of_features+1,1]: feature vector + Y_truth(true Y value)
@@ -82,7 +82,14 @@ class MLPRegressorTrainer(BaseTrainer):
         Y_truth = calib_data_point[-1]
         optimizer = torch.optim.SGD([u_feat], lr=1e-2,momentum=0.9)
         for iter in range(self.feat_iter):
-            pass
+            loss = (self.model.predictor_head_forward(u_feat) - Y_truth)**2
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        u_surrogate = u_feat
+        return 
+    
+        
 
 
 if __name__ == "__main__":

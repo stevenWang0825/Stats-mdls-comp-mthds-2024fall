@@ -94,7 +94,7 @@ class Conformal:
 
 
 if __name__=="__main__":
-    file_path = './datasets/data_Airfoil.txt'
+    file_path = './datasets/Airfoil Self-Noise.txt'
     data = np.loadtxt(file_path)
     print(data.shape)
 

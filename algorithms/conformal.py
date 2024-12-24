@@ -94,7 +94,7 @@ class Conformal:
 
 
 if __name__=="__main__":
-    file_path = './datasets/data_Tibshirani.txt'
+    file_path = './datasets/data_Airfoil.txt'
     data = np.loadtxt(file_path)
     print(data.shape)
 
@@ -108,11 +108,11 @@ if __name__=="__main__":
     idx = np.random.choice(range(0, N), size=int(N * 0.5), replace=False)
     noidx = np.setdiff1d(range(0, N), idx)
     
-    X0 = X[idx, :] # training set
+    X0 = X[idx, :] # training set (pre-training and calibration)
     y0 = y[idx]
-    X00 = X[noidx, :] # calibration set 
+    X00 = X[noidx, :] # test set 
     y00 = y[noidx]
-    n00 = X00.shape[0] # size of calibration set
+    n00 = X00.shape[0] # size of test set
 
     conformal = Conformal(X0=X0, y0=y0, X00=X00, y00=y00, rho=0.5, alpha=0.1, weight=None, train_model="lasso")
     print(np.sum(conformal.split_weight_conformal()[0]) / n00)

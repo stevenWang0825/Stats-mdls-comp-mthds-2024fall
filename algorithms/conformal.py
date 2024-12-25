@@ -3,6 +3,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import Lasso
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import HuberRegressor
 import random
 
 random.seed(123)
@@ -76,6 +77,10 @@ class Conformal:
         elif train_model == "ridge":
             model = Ridge(alpha=1.0)
             model.fit(X0, y0)
+            predict_model = model.predict
+        elif train_model == 'huber':
+            model = HuberRegressor()
+            model.fit(X0,y0)
             predict_model = model.predict
 
         cal_scores = np.abs(y0[i2] - predict_model(X0[i2, :]))

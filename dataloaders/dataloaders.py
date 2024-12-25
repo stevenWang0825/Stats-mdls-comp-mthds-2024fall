@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 import os
@@ -6,12 +7,138 @@ import sys
 from ucimlrepo import fetch_ucirepo 
 import random
 import numpy as np
-random.seed(42)
-np.random.seed(42)
-torch.manual_seed(42)
+import pandas as pd
+from tqdm import tqdm
 
 from baseclasses.baseclass import BaseDataLoader
 from torch.utils.data import DataLoader, RandomSampler
+from architectures.mlpRegressor import MLP_Regressor
+
+class CSVsLoader(BaseDataLoader):
+    def __init__(self, _args) -> None:
+        """
+        five datasets in UCI MACHINE LEARNING loaded from local files;
+        WQ: Wine Quality
+        CCS: Concrete Compressive Strength
+        PT: Parkinsons Telemonitoring
+        QFT: QSAR Fish Toxicity
+        YH: Yacht Hydrodynamics
+        """
+        super(CSVsLoader, self).__init__(_args)
+        self.args = _args
+        self.device = self.args.device  
+        self.DATASET_LIST = self.args.DATASET_LIST
+    def load_full_data(self):
+        """
+        DATASETS_LIST = ['WQ','CCS','PT','QFT','YH']; WQ uses the WineQualityLoader, NOT THIS LOADER
+        """
+        if self.args.dataset not in self.args.DATASET_LIST:
+            raise ValueError(f"Invalid dataset name: {self.args.dataset}")
+        if self.args.dataset =='WQ':
+            red_wine= pd.read_csv('datasets/winequality-red.csv', sep=';')
+            white_wine = pd.read_csv('datasets/winequality-white.csv', sep=';')
+            red_wine['type'] = 'red'
+            white_wine['type'] = 'white'
+            data = pd.concat([red_wine, white_wine], ignore_index=True)
+        elif self.args.dataset =='CCS':
+            file_path = './datasets/Concrete Compressive Strength.xls'
+            data = pd.read_excel(file_path, header=0)
+        elif self.args.dataset =='QFT':
+            file_path = './datasets/QSAR Fish Toxicity.csv'
+            data = pd.read_csv(file_path, header=0, sep=";")
+        elif self.args.dataset =='PT':
+            file_path = './datasets/Parkinsons Telemonitoring.data'
+            data = pd.read_csv(file_path, header=0)
+        elif self.args.dataset =='YH':
+            file_path = './datasets/Yacht Hydrodynamics.data'
+            data = pd.read_csv(file_path, header=0, sep='\s+')
+        
+        if self.args.dataset == "WQ":
+            X = data.iloc[:, :-2].to_numpy()
+            y= data.iloc[:, -2].to_numpy()
+            N = X.shape[0]
+            INPUT_DIM = X.shape[1]
+            self.X = torch.tensor(X).float().to(self.device)
+            self.y = torch.tensor(y).float().to(self.device)
+            self.N = N
+            self.INPUT_DIM = INPUT_DIM
+        else:
+            X = data.iloc[:, :-1].to_numpy()
+            y = data.iloc[:, -1].to_numpy()
+            N = X.shape[0]
+            INPUT_DIM = X.shape[1]
+            self.X = torch.tensor(X).float().to(self.device)
+            self.y = torch.tensor(y).float().to(self.device)
+            self.N = N
+            self.INPUT_DIM = INPUT_DIM
+        print(f"Loaded full dataset {self.args.dataset} with shape: {self.X.shape},{self.y.shape}")
+
+    def load_split_data(self):
+        idx = np.random.choice(range(0, self.N), size=int(self.N * 0.5), replace=False)
+        noidx = np.setdiff1d(range(0, self.N), idx)
+
+        self.X0 = self.X[idx, :] # training set
+        self.y0 = self.y[idx]
+        self.X00 = self.X[noidx, :] # calibration set 
+        self.y00 = self.y[noidx]
+        self.n00 = self.X00.shape[0] # size of calibration set
+        print(f"Loaded split dataset {self.args.dataset} train shape: {self.X0.shape} test size{self.X00.shape} ")
+    
+    def make_MLP_Regressor(self):
+        """
+        Setup the simple MLP regressor model
+        """
+        self.model = MLP_Regressor(task_type='regression', input_dim=self.INPUT_DIM, 
+                                   output_dim=1, dropout_prob=0.2, hidden_dims=[64, 64, 32])
+        self.task_type = self.model.task_type
+        if self.task_type == 'regression':
+            self.criterion = nn.MSELoss()
+        else:
+            raise NotImplementedError
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        self.epochs = self.args.epochs
+        self.batchsize = 128
+        self.feat_iter = 128 # M in the paper's algorithm 2, for calculating nonconformity scores
+        self.model.to(self.device)
+        print(f"MLP Regressor model setup with input dim: {self.INPUT_DIM}")
+
+    def train_MLP_Regressor(self):
+        self.train_X = self.X0
+        self.train_y = self.y0.unsqueeze(-1)
+        self.test_X = self.X00
+        self.test_y = self.y00.unsqueeze(-1)
+
+        train_loss_logger = []
+        test_loss_logger = []
+        for epoch in tqdm(range(self.epochs),desc="MLP Regression Model Training"):
+            self.model.train()
+            epoch_loss = 0.0
+            for i in range(0,self.train_X.shape[0],self.batchsize):
+                X_batch = self.train_X[i:min(i+self.batchsize,self.train_X.shape[0]),:]
+                y_batch = self.train_y[i:min(i+self.batchsize,self.train_X.shape[0]),:]
+                # optimizer run
+                self.optimizer.zero_grad()
+                outputs = self.model(X_batch)
+                loss = self.criterion(outputs, y_batch)
+                epoch_loss += loss.item()
+                loss.backward()
+                self.optimizer.step()
+            train_loss_logger.append(epoch_loss)
+            self.model.eval()
+            with torch.no_grad():
+                test_loss = 0.0
+                for i in range(0, self.test_X.shape[0], self.batchsize):
+                    X_test_batch = self.test_X[i:min(i + self.batchsize, self.test_X.shape[0]), :]
+                    y_test_batch = self.test_y[i:min(i + self.batchsize, self.test_X.shape[0]), :]
+                    test_outputs = self.model(X_test_batch)
+                    test_loss += self.criterion(test_outputs, y_test_batch).item()
+                test_loss_logger.append(test_loss)
+            if epoch % 250 == 0:
+                print(f"[{epoch + 1}] current epoch total loss: {epoch_loss}")  
+        print(f"Training finished, final loss: {train_loss_logger[-1]}")
+        self.train_loss_logger = train_loss_logger
+        self.test_loss_logger = test_loss_logger
+    
 
 class MNISTLoader(BaseDataLoader):
     def __init__(self, args) -> None:
@@ -98,6 +225,8 @@ class WineQualityLoader(BaseDataLoader):
     
     def get_calibration_set(self) -> tuple:
         return self.X_calib, self.y_calib
+
+
 
     
     

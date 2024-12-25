@@ -3,9 +3,6 @@ import torch.nn as nn
 import random
 import torch
 import numpy as np
-random.seed(42)
-np.random.seed(42)
-torch.manual_seed(42)
 
 class MLP_Regressor(nn.Module):
     def __init__(self, task_type, input_dim, output_dim, dropout_prob, hidden_dims) -> None:

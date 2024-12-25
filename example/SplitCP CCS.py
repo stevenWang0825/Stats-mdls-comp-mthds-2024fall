@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import random
 from algorithms.conformal import Conformal
-import os
-
+import os, sys
+main_folder_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(main_folder_path)
 random.seed(123)
 
 if __name__=="__main__":

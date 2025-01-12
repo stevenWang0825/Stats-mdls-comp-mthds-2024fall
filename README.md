@@ -1,25 +1,28 @@
 # Stats-mdls-comp-mthds-2024fall
 This is the repository for 统计模型与计算方法，2024fall.
-## code structure (optional)
+
+### RUN THE 3 .ipynb FILES TO OBTAIN RESULTS. THE CONTENT BELOW SHOWS THE SOURCECODE STRUCTURE. 
 
 algorithms/
-    └── conformal.py          # Implementation of weighted split CP (https://arxiv.org/abs/1904.06019)
+
+    └── example Implementation of weighted split CP (https://arxiv.org/abs/1904.06019)
 
 architectures/
-    └── simple_mnistNet.py    # Simple CNN for MNIST classification
+
+    └── MLP Regressors and image CNN (too large, exceeds our device limits, thus discarded)
 
 baseclasses/
-    └── baseclass.py          # Inherit trainers and dataloaders from here
 
-configs/
-    └── (tbd)configs.yaml        # Experiment parameters; configuration files
+    └── Inherit trainers and dataloaders from here
 
 dataloaders/
-    └── dataloaders.py        # Loading and preprocessing various datasets
+
+    └── dataloaders.py        # Loading nets and datasets, processing and training classes
 
 datasets/
-    ├── MNIST/               # Directory for MNIST dataset
-    └── data-tibshirani.txt   # Other dataset files
 
-trainers/
-    └── trainer_simple_mnist.py  # Optimizer loop for simple_mnistNet
+    └── contains all datasets used in the article
+
+pictures/
+
+    └── contains all figures in the article
